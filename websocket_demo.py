@@ -1,81 +1,95 @@
 import time
-import machine
+# import machine
+import ujson
 from ws_connection import ClientClosedError
 from ws_server import WebSocketServer, WebSocketClient
 
-class WebsocketClient(WebSocketClient):
+_TARGETS = 1
+_INIT_FLAG = 0
+_MODE = 0
+_UART_FLAG = True
+_NEW_DATA = {'t':0, 'e': -1, 'p': 0} # t = target no, e = LED no, p = points
+
+class Client(WebSocketClient):
     def __init__(self, conn):
         super().__init__(conn)
 
-    def process(self, *args, **kwargs):
+    def process(self):
         # first is something from attiny ?
         try:
             msg = self.connection.read()
             if msg:
                 # something from websoket
                 msg = msg.decode("utf-8")
-                items = msg.split(" ")
-                cmd = items[0]
+                # json decode
+                try:
+                    msg = ujson.loads(msg)
+                    if msg['i'] == 1:
+                        global _INIT_FLAG
+                        _INIT_FLAG = 1
+                        # needs to send init data
+                        d = {'i':1, 'd': {'m': _MODE, 't': _TARGETS}}
+                        self.websocketWrite(d)
+                    else:
+                        # something else so parse
+                        pass
+                except:
+                    # someting happend
+                    print('je to napicu neco se stalo')
             # check if something is for change
-            if uart_flag:
+            if _UART_FLAG:
                 # yes something needs to be send by webcocket for client side
-                self.connection.write('tralalallal')
-        except ClientClosedError:
+                d = {'i':2, 'd': _NEW_DATA}
+                self.websocketWrite(d)
+
+        except ClientClosedError as e:
+            print('socket error')
+            print(e)
             self.connection.close()
 
+    def websocketWrite(self, data):
+        self.connection.write(ujson.dumps(data))
 
-class WebsocketServer(WebSocketServer):
+
+class Server(WebSocketServer):
     def __init__(self):
-        super().__init__('index.html', 1) #allow only 1 connection on it
+        super().__init__('index.html.gz', 1) #allow only 1 connection on it
 
     def _make_client(self, conn):
-        return WebsocketClient(conn)
+        return Client(conn)
 
-class LetMee(object):
+class Letmee(object):
     def __init__(self):
-        # basic definitons of tiny variables with target info
-        self.varInit()
         # initialize of attiny UART communication
         self.attiny = self.attinyInit()
-        # initialize the websocker server for it
-        self.websocketInit()
-        # and run main loop
-        self.run()
-
-    def varInit(self):
-        self.uartFlag = True # is something new from UART??
-        self.newData = {} # new data for uart send
-        # database with all data of target
-        # t = number of targets
-        # c = array of shooted part of each target
-        self.target = { 't': 1
-                      , 'c': {1:[]} }
 
     def attinyInit(self):
         pass
 
-    def websockerInit(self):
-        self.server = WebsocketServer()
-        self.server.start()
-
     def checkUart(self):
         # todo UART read something if exist and set timeout on it because i want !
-        uart = True
-        # if something come put into variable and set incomming flag to 1
-        if uart:
-            self.uartFlag = True
-            # self.new_data = {'1':'nejaka nova data'}
+        # _NEW_DATA = {'t':0, 'e': 0, 'p': 0}
+        return {'t':0, 'e': _NEW_DATA['e'] + 1, 'p': _NEW_DATA['p'] + 1}
 
-    def run(self):
-        try:
-            while 1:
-                self.server.procecss_all( uart_flag = self.uartFlag
-                                        , new_data  = self.new_data )
-                # set uart event flah to 0 and new_data erase
-                self.uartFlag = False
-                self.new_data = {}
-                # something on UART??
-                self.checkUart()
-                time.sleep(1)
-        except KeyboardInterrupt:
-            self.server.stop()
+print('start')
+server = Server()
+letmee = Letmee()
+server.start()
+try:
+    while True:
+        server.process_all()
+        server.process_all()
+        # set uart event flah to 0 and new_data erase
+        _UART_FLAG = False
+        # _NEW_DATA = {}
+        # something on UART??
+        if _INIT_FLAG:
+            _NEW_DATA = letmee.checkUart()
+            _UART_FLAG = True
+        time.sleep(1)
+except Exception as e:
+    print('foooooo')
+    print(e)
+except KeyboardInterrupt:
+    pass
+server.stop()

@@ -1,0 +1,6 @@
+#!/bin/sh
+# Minify file for python sources
+
+mpy-cross/mpy-cross websocket_demo.py
+mpy-cross/mpy-cross ws_connection.py
+mpy-cross/mpy-cross ws_server.py

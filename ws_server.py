@@ -10,7 +10,7 @@ class WebSocketClient:
     def __init__(self, conn):
         self.connection = conn
 
-    def process(self, *args, **kwargs):
+    def process(self):
         pass
 
 
@@ -65,13 +65,24 @@ class WebSocketServer:
 
     def _serve_page(self, sock):
         try:
-            sock.sendall('HTTP/1.1 200 OK\nConnection: close\nServer: WebSocket Server\nContent-Type: text/html\n')
+            if self._page.split('.')[-1] == 'css':
+                sock.sendall('HTTP/1.1 200 OK\nConnection: close\nServer: WebSocket Server\nContent-Type: text/css\n')
+            elif self._page.split('.')[-1] =='gz':
+                sock.sendall('HTTP/1.1 200 OK\nConnection: close\nServer: WebSocket Server\nContent-Encoding: gzip\n')
+            else:
+                sock.sendall('HTTP/1.1 200 OK\nConnection: close\nServer: WebSocket Server\nContent-Type: text/html\n')
             length = os.stat(self._page)[6]
             sock.sendall('Content-Length: {}\n\n'.format(length))
             # Process page by lines to avoid large strings
             with open(self._page, 'r') as f:
-                for line in f:
-                    sock.sendall(line)
+                while 1:
+                    a = f.read(10)
+                    if a == '':
+                        break
+                    else:
+                        sock.sendall(a)
+                # for line in f:
+                #     sock.sendall(line)
         except OSError:
             # Error while serving webpage
             pass
@@ -91,9 +102,13 @@ class WebSocketServer:
         self._setup_conn(port, self._accept_conn)
         print("Started WebSocket server.")
 
-    def process_all(self, *args, **kwargs):
+    # def process_all(self, *args, **kwargs):
+    #     for client in self._clients:
+    #         client.process(*args, **kwargs)
+    def process_all(self):
         for client in self._clients:
-            client.process(*args, **kwargs)
+            client.process()
+
 
     def remove_connection(self, conn):
         for client in self._clients:

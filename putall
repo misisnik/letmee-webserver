@@ -1,0 +1,7 @@
+#!/bin/sh
+# Upload all minify files
+
+ampy --port /dev/ttyUSB0 -b115200 put websocket_demo.mpy
+ampy --port /dev/ttyUSB0 -b115200 put ws_connection.mpy
+ampy --port /dev/ttyUSB0 -b115200 put ws_server.mpy
+ampy --port /dev/ttyUSB0 -b115200 put index.html
