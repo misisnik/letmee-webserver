@@ -16,9 +16,30 @@
 
     <div class="splash-container">
         <div class="splash">
-          <div class="targets"><h1 class="splash-head">Connecting</h1></div>
+          <div class="targets">
+            <div class="splash-head">
+              <form class="pure-form pure-form-aligned">
+                <fieldset>
+                    <div class="pure-control-group">
+                        <label for="form_name">Username</label>
+                        <input id="form_name" type="text" value="Hrac X" placeholder="Username">
+                    </div>
+                    <div class="pure-control-group">
+                        <label for="form_mode">Mode</label>
+                        <select id="form_mode">
+                            <option value='1'>Prvni mod</option>
+                            <option value='2'>Druhej mod</option>
+                            <option value='3'>Treti mod</option>
+                        </select>
+                    </div>
+                    <div class="pure-controls">
+                        <div class="pure-button button-success" id="start_game" style="text-align:center;">Připojit a zahájit hru</div>
+                    </div>
+                </fieldset>
+            </form>
+            </div>
+          </div>
         </div>
-        <button class="pure-button pure-button-primary">A Primary Button</button>
     </div>
     <div class="footer l-box is-center">
         <div class="mode">You have <span id="mode_text">NULL</span> mode and you have <span id="total_points">0</span> points</div>
@@ -28,6 +49,10 @@
     <script src="jquery_micro.js"></script>
     <script type="text/javascript">
       // target mapp
+      window.name = ''
+      window.mode = 0
+      window.points = 0
+
       var target_map =  { 0: 0
                         , 1: 0
                         , 2: 0
@@ -121,34 +146,44 @@
                         , 90: 0 }
 
       // ws initialization
-      var total_points = 0;
-      var ws = new WebSocket("ws://192.168.4.1:80");
-      ws.onopen = function () {
-          // ve need to get data about target
-          var data = {'i': 1};
-          ws.send(JSON.stringify(data));
-      };
-      ws.onmessage = function (evt) {
-        var data = $.parseJSON(evt.data);
-        if( $.type(data) == 'string'){
-          // try again
-          data = $.parseJSON(data);
-        }
+      $( "#start_game" ).click(function() {
+        window.name = $( "#form_name" ).val();
+        window.mode = $( "#form_mode" ).val();
+        start_websocket()
+        $('#start_game').text('Pripojuji...');
+      });
 
-        if (data.i == 1){
-          // init sequense needs to render targets
-          $( ".targets" ).empty(); // erase old data if exist
-          $('#mode_text').text(data.d.m);
-          renderTargets(data.d.t);
-        }else if(data.i == 2){
-          // somebody shoot the target send request for target id and element id
-          total_points+= data.d.p;
-          $('#total_points').text(total_points);
-          shotPoint(data.d.t, target_map[data.d.e]);
-        }
-      };
-      // ws.onerror = (error) => alert(error);
-      ws.onclose = () => console.log('fooo cloes');
+      function start_websocket(){
+        var ws = new WebSocket("ws://192.168.4.1:80");
+        ws.onopen = function () {
+            // ve need to get data about target
+            var data = {'i': 1, 'm': window.mode};
+            ws.send(JSON.stringify(data));
+        };
+        ws.onmessage = function (evt) {
+          var data = $.parseJSON(evt.data);
+          if( $.type(data) == 'string'){
+            // try again
+            data = $.parseJSON(data);
+          }
+
+          if (data.i == 1){
+            // init sequense needs to render targets
+            $( ".targets" ).empty(); // erase old data if exist
+            window.mode = data.d.m
+            $('#mode_text').text(data.d.m);
+            renderTargets(data.d.t);
+          }else if(data.i == 2){
+            // somebody shoot the target send request for target id and element id
+            window.points += data.d.p;
+            $('#total_points').text(window.points);
+            shotPoint(data.d.t, target_map[data.d.e]);
+          }
+        };
+
+        // ws.onerror = (error) => alert(error);
+        ws.onclose = () => console.log('fooo cloes');
+      }
 
       function renderTargets(targets){
         $( ".targets" ).empty(); // erase old data if exist
