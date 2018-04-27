@@ -96,15 +96,15 @@ class Letmee(object):
         name = '{}-{}'.format(self.config['name'], self.getMac()[-4:])
         ap_if = network.WLAN(network.AP_IF)
         ap_if.active(True)
-        ap_if.config( essid    = name
-                    , password = self.config['pass'] )
-
-        print('nastaveno')
+        if ap_if.config('essid') != name:
+            # new wifi config will send only if new wifi name occure
+            ap_if.config( essid    = name
+                        , password = self.config['pass'] )
 
     def attinyInit(self):
         # define UART
-        self.uart = UART(1, 9600)
-        self.uart.init(9600, bits=8, parity=None, stop=1)
+        self.uart = UART(0, 9600)
+        self.uart.init(9600, bits=8, parity=None, stop=2)
 
     def checkUart(self):
         # todo UART read something if exist and set timeout on it because i want !
@@ -114,6 +114,8 @@ class Letmee(object):
         # readline with timeout
         try:
             line = self.uart.readline()
+            line = line.decode('utf-8')[:-1]
+            print(line)
             return ujson.loads(line)
         except Exception as e:
             print(e)
@@ -121,23 +123,30 @@ class Letmee(object):
 
 letmee = Letmee()
 server = Server()
-server.start()
-print('server_started')
-try:
-    while True:
-        server.process_all()
-        # set uart event flah to 0 and new_data erase
-        _UART_FLAG = False
-        # something on UART??
-        if _INIT_FLAG:
-            uart_data = letmee.checkUart()
-            if uart_data:
-                _NEW_DATA = uart_data
-                _UART_FLAG = True
+while 1:
+    server.start()
+    print('server_started')
+    try:
+        while True:
+            server.process_all()
+            # set uart event flag to 0 and new_data erase
+            _UART_FLAG = False
+            # something on UART??
+            if _INIT_FLAG:
+                uart_data = letmee.checkUart()
+                if uart_data:
+                    _NEW_DATA = uart_data
+                    _UART_FLAG = True
+            time.sleep(1)
+    except Exception as e:
+        print('foooooo')
+        print(e)
+    except KeyboardInterrupt:
+        pass
+    server.stop()
+    try:
+        # time to kill process, else server will start again
+        print('Websocket server kill = ctrl + c')
         time.sleep(1)
-except Exception as e:
-    print('foooooo')
-    print(e)
-except KeyboardInterrupt:
-    pass
-server.stop()
+    except KeyboardInterrupt:
+        break
